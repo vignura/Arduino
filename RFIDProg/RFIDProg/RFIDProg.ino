@@ -23,7 +23,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 MFRC522 mfrc522(SS_PIN, RST_PIN);   // Create MFRC522 instance.
 MFRC522::Uid uid = {0};
 const int UIDStartAddr = 0x0C;
-
+byte byUIDCount = 0;
 /***********************************************************************************************/
 /*! 
 * \fn         :: setup()
@@ -71,8 +71,6 @@ void setup() {
 void loop() {
 
   int iStoreAddr = 0;
-  byte byUIDCount = 0;
- 
   // Look for new cards
   if ( ! mfrc522.PICC_IsNewCardPresent()) 
   {
@@ -87,7 +85,7 @@ void loop() {
 
   //Show UID on serial monitor
   print_UID(&mfrc522.uid);
-  delay(2000);
+  delay(1000);
 
   iStoreAddr = (UIDStartAddr + (byUIDCount * sizeof(MFRC522::Uid)));
   
@@ -97,7 +95,12 @@ void loop() {
   // print the stored address
   Serial.print("\tstored to EEPROM at ");
   Serial.println(iStoreAddr, HEX);
-
+  lcd.setCursor(0, 1);
+  lcd.print("EEPROM: ");
+  lcd.setCursor(8, 1);
+  lcd.print(iStoreAddr,HEX);
+  delay(1000);
+  
   // read back and verify
   Serial.print("Read Back: ");
   lcd.setCursor(0, 1);
@@ -117,6 +120,7 @@ void loop() {
     lcd.setCursor(11, 1);
     lcd.print(" FAIL");
   }
+  delay(1000);
   
   byUIDCount++;
   if(byUIDCount >=  MAX_UIDS_ALLOWED)
@@ -124,7 +128,6 @@ void loop() {
     byUIDCount = 0;
   }
 
-  delay(2000UL);
   Serial.println("Put your card to the reader...");
   lcd.clear();
   lcd.setCursor(1,0);
