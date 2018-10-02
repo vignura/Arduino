@@ -1,0 +1,6 @@
+How to load bootloader:
+1) follow https://www.arduino.cc/en/Tutorial/ArduinoToBreadboard
+2) "ERROR: device signature mismatch!; Expected: 0x1e 0x95 0x0F but Observed: 0x1e 0x95 0x14" error is encountered
+3) In, C:\arduino-1.8.5\hardware\tools\avr\etc\avrdude.conf: search for 0x1e 0x95 0x0F; and replace it with 0x1e 0x95 0x14
+	now try loading bootloader again.
+	

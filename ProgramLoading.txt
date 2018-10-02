@@ -1,0 +1,4 @@
+How to load bootloader:
+1) follow https://www.arduino.cc/en/Tutorial/ArduinoToBreadboard
+2) select the board as "Arduino Duemilanove"
+3) then upload
