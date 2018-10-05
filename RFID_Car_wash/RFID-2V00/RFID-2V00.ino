@@ -18,9 +18,9 @@
 #define EARSE         2
 #define RELAY         1 
 
-#define RELAY_ON_TIME_SEC           (1 * 30UL)
+#define RELAY_ON_TIME_SEC           (15 * 60UL)
 #define MAX_UIDS_ALLOWED            0x02
-#define LONG_PRESS_DELAY_COUNT      0xF6  // 7.2 seconds delay
+#define LONG_PRESS_DELAY_COUNT      0xC0  // 7.2 seconds delay
 
 #define RELAY_STATE_ON              0x01
 #define RELAY_STATE_OFF             0x02
@@ -251,14 +251,14 @@ void UpdateLCD(int iRelayState)
         // update Today count
         lcd.clear();
         lcd.setCursor(0,0);
-        lcd.print("TDY CNT: ");
-        lcd.setCursor(10,0);
+        lcd.print("TDY CNT:");
+        lcd.setCursor(9,0);
         lcd.print(ulTodayCount);
 
         // update Total count
         lcd.setCursor(0,1);
-        lcd.print("TOT CNT: ");
-        lcd.setCursor(10,1);
+        lcd.print("TOT CNT:");
+        lcd.setCursor(9,1);
         lcd.print(ulTotalCount);
 
         break;
