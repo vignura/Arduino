@@ -18,18 +18,32 @@
 #define EARSE         2
 #define RELAY         1 
 
-#define MOTOR_ON_TIME_SEC           (15 * 60UL)
+#define RELAY_ON_TIME_SEC           (1 * 30UL)
 #define MAX_UIDS_ALLOWED            0x02
 #define LONG_PRESS_DELAY_COUNT      0xF6  // 7.2 seconds delay
+
+#define RELAY_STATE_ON              0x01
+#define RELAY_STATE_OFF             0x02
+#define RELAY_STATE_PAUSED          0x03
+
+#define RFID_NOT_DETECTED           0x01
+#define RFID_DETECTED               0x02
 
 // make sure both addresses are seperated by atleast 4 Bytes
 int tdyaddr = 0;
 int totaddr = 4;
-int iPressCount = 0;
 unsigned long ulTodayCount = 0;
 unsigned long ulTotalCount = 0;
+
+unsigned long ulStartTime = 0;
+unsigned long ulStopTime  = 0;
+unsigned long ulRunTime   = 0;
+
+int iPressCount = 0;
 const int UIDStartAddr = 0x0C;
-MFRC522::Uid g_arrUID[MAX_UIDS_ALLOWED];
+int iRelayState = RELAY_STATE_OFF;
+int iRFIDState = RFID_NOT_DETECTED;
+MFRC522::Uid g_arrUID[MAX_UIDS_ALLOWED] = {0};
 
 // initialize the library with the numbers of the interface pins
 const int rs = 3, en = 4, d4 = 5, d5 = 6, d6 = 7, d7 = 8;
@@ -73,7 +87,7 @@ void setup()
   EEPROM.get(totaddr, ulTotalCount);
   EEPROM.get(tdyaddr, ulTodayCount);
   loadUID();
-  UpdateLCD();
+  UpdateLCD(iRelayState);
 }
 
 /***********************************************************************************************/
@@ -86,10 +100,17 @@ void setup()
 *                1) When Erase button is pressed, today count is reset
 *                2) When Erase button is pressed for long time (ie > 7.2 Sec) total count
 *                   is cleared
-*                3) If a valid RFID is detected by the MFRC522 RFID reader, then relay is turned
-*                   on for a fixed time (ie 15 minutes) and the lcd updated is updated with 
-*                   today and total counts. After fixed time, relay is  turned off. 
-*                4) If a invalid RFID is detected, then "Access Denied" is displayed in lcd
+*                3) If a valid RFID is detected by the MFRC522 RFID reader when the Relay is 
+*                   off, then the relay is turned on for a fixed time (ie 15 minutes) and 
+*                   the lcd updated is updated with today and total counts. After fixed time,
+*                   the relay is turned off. 
+*                4) If a valid RFID is detected by the MFRC522 RFID reader and the Relay is
+*                   is already on, then it is turned off and loop goes to paused state and 
+*                   lcd is updated with "Paused.." text.
+*                5) If a valid RFID is detected by the MFRC522 RFID reader and the Relay is
+*                   is paused, then it is turned on and loop goes back to on state and 
+*                   lcd is updated with counts. 
+*                6) If a invalid RFID is detected, then "Access Denied" is displayed in lcd
 * \param[in]  :: None
 * \param[out] :: None
 * \return     :: None
@@ -97,6 +118,12 @@ void setup()
 /***********************************************************************************************/
 void loop() 
 { 
+  // get the start time 
+  ulStartTime = millis();
+
+  // set RIFD state
+  iRFIDState = RFID_NOT_DETECTED;
+
   // reset today count
   if(digitalRead(EARSE) == 0)
   {
@@ -104,9 +131,7 @@ void loop()
     {
       ulTodayCount = 0;
       EEPROM.put(tdyaddr, ulTodayCount);
-      UpdateLCD();
-    }
-    
+    }  
     iPressCount++;
   }
   else
@@ -120,45 +145,88 @@ void loop()
     ulTotalCount = 0;
     EEPROM.put(totaddr, ulTotalCount);
     iPressCount = 0;
-    UpdateLCD();
   }
 
   // Look for new cards
-  if ( ! mfrc522.PICC_IsNewCardPresent()) 
+  if (mfrc522.PICC_IsNewCardPresent()) 
   {
-    return;
-  }
-
-  // Select one of the cards
-  if ( ! mfrc522.PICC_ReadCardSerial()) 
-  {
-    return;
-  }
- 
+    // Select one of the cards
+    if (mfrc522.PICC_ReadCardSerial()) 
+    {
+      iRFIDState = RFID_DETECTED;
+    }
+    else
+    {
+      iRFIDState = RFID_NOT_DETECTED;
+    }
+  } 
+  
   //print_UID(&mfrc522);
   
-  if (IsUIDValid(&mfrc522.uid)) //change here the UID of the card/cards that you want to give access
-  { 
-    // increment the counts
-    ulTodayCount++;
-    ulTotalCount++;
-    // store the change to EEPROM
-    EEPROM.put(totaddr, ulTotalCount);
-    EEPROM.put(tdyaddr, ulTodayCount);
-    UpdateLCD();
-    
-    digitalWrite(RELAY, HIGH);
-    delay_sec(MOTOR_ON_TIME_SEC);
-    digitalWrite(RELAY,LOW);
-  }
-  else
+  if(iRFIDState == RFID_DETECTED)
   {
-    // Serial.println(" Access denied");
-    lcd.clear();
-    lcd.setCursor(1,0);
-    lcd.print("Access Denied");
+    // control the motor state if a valid UID is detected
+    if (IsUIDValid(&mfrc522.uid))
+    { 
+      if(iRelayState == RELAY_STATE_OFF)
+      {
+        digitalWrite(RELAY, HIGH);  
+        iRelayState = RELAY_STATE_ON;
+
+        // increment the counts
+        ulTodayCount++;
+        ulTotalCount++;
+        
+        // store the change to EEPROM
+        EEPROM.put(totaddr, ulTotalCount);
+        EEPROM.put(tdyaddr, ulTodayCount);
+      }
+      else if(iRelayState == RELAY_STATE_ON)
+      { 
+        digitalWrite(RELAY,LOW);
+        iRelayState = RELAY_STATE_PAUSED;
+      }
+      else if(iRelayState == RELAY_STATE_PAUSED)
+      {
+        digitalWrite(RELAY,HIGH);
+        iRelayState = RELAY_STATE_ON; 
+      }
+      else
+      {
+        // invalid relay state;
+        iRelayState = -1;
+      }
+    }
+    else
+    {
+      // Serial.println(" Access denied");
+      lcd.clear();
+      lcd.setCursor(1,0);
+      lcd.print("Access Denied");
+      delay(2000);
+    }
+  }
+
+  UpdateLCD(iRelayState);
+
+  // added for  
+  if(iRFIDState == RFID_DETECTED)
+  {
     delay(2000);
-    UpdateLCD();
+  }
+
+  if(iRelayState == RELAY_STATE_ON)
+  {
+    ulStopTime = millis();
+    // possible overflow
+    ulRunTime += (ulStopTime -ulStartTime);
+
+    if((ulRunTime / 1000UL) >= RELAY_ON_TIME_SEC)
+    {
+     digitalWrite(RELAY, LOW);
+     iRelayState = RELAY_STATE_OFF;
+     ulRunTime = 0; 
+    }
   }
 } 
 
@@ -167,26 +235,49 @@ void loop()
 * \fn         :: UpdateLCD()
 * \author     :: Vignesh S
 * \date       :: 01-OCT-2018
-* \brief      :: This function updates the LCD display with today count and total count
-* \param[in]  :: None
+* \brief      :: This function updates the LCD display according to iRelayState parameter
+* \param[in]  :: iRelayState
 * \param[out] :: None
 * \return     :: None
 */
 /***********************************************************************************************/
-void UpdateLCD()
+void UpdateLCD(int iRelayState)
 {
-    // update Today count
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("TDY CNT: ");
-    lcd.setCursor(10,0);
-    lcd.print(ulTodayCount);
+    switch(iRelayState)
+    { 
+      case RELAY_STATE_OFF:
+      case RELAY_STATE_ON:    
+        
+        // update Today count
+        lcd.clear();
+        lcd.setCursor(0,0);
+        lcd.print("TDY CNT: ");
+        lcd.setCursor(10,0);
+        lcd.print(ulTodayCount);
 
-    // update Total count
-    lcd.setCursor(0,1);
-    lcd.print("TOT CNT: ");
-    lcd.setCursor(10,1);
-    lcd.print(ulTotalCount);
+        // update Total count
+        lcd.setCursor(0,1);
+        lcd.print("TOT CNT: ");
+        lcd.setCursor(10,1);
+        lcd.print(ulTotalCount);
+
+        break;
+
+      case RELAY_STATE_PAUSED:
+
+        lcd.clear();
+        lcd.setCursor(0,0);  
+        lcd.print("    PAUSED..    ");
+
+        break;
+
+      default:    
+        lcd.clear();
+        lcd.setCursor(0,0);  
+        lcd.print("    INVALID     ");
+        lcd.setCursor(0,1);  
+        lcd.print("  RELAY STATE   ");      
+    }
 }
 
 /***********************************************************************************************/
