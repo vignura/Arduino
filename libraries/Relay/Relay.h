@@ -13,6 +13,7 @@
 class Relay
 {
 	bool m_IsTimerSet;
+	bool m_isActiveLow;
 
 	uint8_t m_State;
 	uint8_t m_RelayPin;
@@ -23,9 +24,12 @@ class Relay
 public:
 	Relay(uint8_t RelayPin);
 	Relay(uint8_t RelayPin, uint8_t State);
+	Relay(uint8_t RelayPin, bool isActiveLow);
+	Relay(uint8_t RelayPin, uint8_t State, bool isActiveLow);
 
-	void setState(uint8_t State);
+	uint8_t setActiveLow(bool isActiveLow);
 	uint8_t getState();
+	void setState(uint8_t State);
 
 	void setTimer(uint32_t OnTimeSec);
 	void stopTimer();

@@ -2,24 +2,50 @@
 
 Relay::Relay(uint8_t RelayPin)
 {
+	m_IsTimerSet = false;
+	m_isActiveLow = false;
+	m_OnTimeSec = 0;
+	m_StartTime_ms = 0;
+
 	m_RelayPin = RelayPin;
 	pinMode(m_RelayPin, OUTPUT);
 	setState(RELAY_OFF);
-
-	m_IsTimerSet = false;
-	m_OnTimeSec = 0;
-	m_StartTime_ms = 0;
 }
 
 Relay::Relay(uint8_t RelayPin, uint8_t State)
 {
+	m_IsTimerSet = false;
+	m_isActiveLow = false;
+	m_OnTimeSec = 0;
+	m_StartTime_ms = 0;
+
 	m_RelayPin = RelayPin;
 	pinMode(m_RelayPin, OUTPUT);
 	setState(State);
+}
 
+Relay::Relay(uint8_t RelayPin, bool isActiveLow)
+{
 	m_IsTimerSet = false;
+	m_isActiveLow = isActiveLow;
 	m_OnTimeSec = 0;
 	m_StartTime_ms = 0;
+
+	m_RelayPin = RelayPin;
+	pinMode(m_RelayPin, OUTPUT);
+	setState(RELAY_OFF);
+}
+
+Relay::Relay(uint8_t RelayPin, uint8_t State, bool isActiveLow)
+{
+	m_IsTimerSet = false;
+	m_isActiveLow = isActiveLow;
+	m_OnTimeSec = 0;
+	m_StartTime_ms = 0;
+	
+	m_RelayPin = RelayPin;
+	pinMode(m_RelayPin, OUTPUT);
+	setState(State);
 }
 
 void Relay::setState(uint8_t State)
@@ -28,17 +54,36 @@ void Relay::setState(uint8_t State)
 	{
 		case RELAY_OFF:
 			m_State = RELAY_OFF;
-			digitalWrite(m_RelayPin, LOW);
+			if(m_isActiveLow)
+			{	
+				digitalWrite(m_RelayPin, HIGH);
+			}
+			else
+			{
+				digitalWrite(m_RelayPin, LOW);	
+			}
 		break;
 
 		case RELAY_ON:
 			m_State = RELAY_ON;
-			digitalWrite(m_RelayPin, HIGH);
+			if(m_isActiveLow)
+			{	
+				digitalWrite(m_RelayPin, LOW);
+			}
+			else
+			{
+				digitalWrite(m_RelayPin, HIGH);	
+			}
 		break;
 
 		default:
 			m_State = RELAY_OFF;
 	}
+}
+
+uint8_t Relay::setActiveLow(bool isActiveLow)
+{
+	m_isActiveLow = isActiveLow;
 }
 
 uint8_t Relay::getState()
