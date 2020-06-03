@@ -30,6 +30,7 @@ public:
 	uint8_t setActiveLow(bool isActiveLow);
 	uint8_t getState();
 	void setState(uint8_t State);
+	void ToggleState();
 
 	void setTimer(uint32_t OnTimeSec);
 	void stopTimer();

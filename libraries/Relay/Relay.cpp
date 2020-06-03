@@ -81,6 +81,18 @@ void Relay::setState(uint8_t State)
 	}
 }
 
+void Relay::ToggleState()
+{
+	if(m_State == RELAY_ON)
+	{
+		setState(RELAY_OFF);
+	}
+	else
+	{
+		setState(RELAY_ON);	
+	}
+}
+
 uint8_t Relay::setActiveLow(bool isActiveLow)
 {
 	m_isActiveLow = isActiveLow;
