@@ -2,6 +2,82 @@
 
 /***********************************************************************************************/
 /*! 
+* \fn         :: RecvCmd()
+* \author     :: Vignesh S
+* \date       :: 07-DEC-2018
+* \brief      :: This function cheks HC-05 serial port for received data and if data is available
+*                then reads it, the number of bytes read is returned.
+* \param[in]  :: SSPort, pBuff, iBuflen
+* \return     :: iIndex
+*/
+/***********************************************************************************************/
+int RecvCmd(SoftwareSerial &SSPort, char *pBuff, int iBuflen)
+{
+  int iIndex = 0;
+
+  if(pBuff == NULL)
+  {
+    return -1;
+  }
+  
+  while(iIndex < iBuflen)
+  {
+    delay(SERIAL_READ_DELAY_MS);
+    
+    if(SSPort.available())
+    {
+      pBuff[iIndex] = SSPort.read();
+      iIndex++;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  return iIndex;
+}
+
+/***********************************************************************************************/
+/*! 
+* \fn         :: RecvCmd()
+* \author     :: Vignesh S
+* \date       :: 07-DEC-2018
+* \brief      :: This function cheks HC-05 serial port for received data and if data is available
+*                then reads it, the number of bytes read is returned.
+* \param[in]  :: SSPort, pBuff, iBuflen
+* \return     :: iIndex
+*/
+/***********************************************************************************************/
+int RecvCmd(HardwareSerial &SSPort, char *pBuff, int iBuflen)
+{
+  int iIndex = 0;
+
+  if(pBuff == NULL)
+  {
+    return -1;
+  }
+  
+  while(iIndex < iBuflen)
+  {
+    delay(SERIAL_READ_DELAY_MS);
+    
+    if(SSPort.available())
+    {
+      pBuff[iIndex] = SSPort.read();
+      iIndex++;
+    }
+    else
+    {
+      break;
+    }
+  }
+
+  return iIndex;
+}
+
+/***********************************************************************************************/
+/*! 
 * \fn         :: recv_packet()
 * \author     :: Vignesh S
 * \date       :: 27-DEC-2020
@@ -15,8 +91,7 @@ int recv_packet(SoftwareSerial &SSPort, serial_packet *packet)
 {
   int iIndex = 0;
   char *buff = (char*)packet;
-
-  
+ 
   while(iIndex < sizeof(serial_packet))
   {
     delay(SERIAL_READ_DELAY_MS);
@@ -61,6 +136,32 @@ int send_packet(SoftwareSerial &SSPort, serial_packet *packet)
 
 /***********************************************************************************************/
 /*! 
+* \fn         :: transmit_command()
+* \author     :: Vignesh S
+* \date       :: 27-DEC-2020
+* \brief      :: This function transmits a command through a serial and receives the response 
+* \param[in]  :: SSPort, cmd_packet, res_packet
+* \return     :: iIndex
+*/
+/***********************************************************************************************/
+int transmit_command(SoftwareSerial &SSPort, serial_packet *cmd_packet, serial_packet *res_packet, int timeout_ms)
+{
+  int iRecvBytes = 0;
+  int count = 0;
+
+  send_packet(SSPort, cmd_packet);
+
+  while((iRecvBytes < SERIAL_HEADER_SIZE) && (count < (timeout_ms / SERIAL_READ_DELAY_MS)))
+  {
+    iRecvBytes = recv_packet(SSPort, res_packet);
+    count++;
+  }
+
+  return iRecvBytes;
+}
+
+/***********************************************************************************************/
+/*! 
 * \fn         :: is_valid_packet()
 * \author     :: Vignesh S
 * \date       :: 27-DEC-2020
@@ -76,7 +177,7 @@ bool is_valid_packet(serial_packet *packet, uint8_t address[2])
   uint8_t checksum = 0;
 
   // validate header
-  if(packet->header != SERIAL_CMD_HEADER)
+  if((packet->header != SERIAL_CMD_HEADER) && (packet->header != SERIAL_RES_HEADER))
   {
     return false;
   }

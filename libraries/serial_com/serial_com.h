@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <SoftwareSerial.h>
+//#include <Serial.h>
 
 #define SERIAL_READ_DELAY_MS    2
 
@@ -25,8 +26,11 @@ typedef struct serial_packet{
 }serial_packet;
 
 /***********************************************************************************************/
+int RecvCmd(SoftwareSerial &SSPort, char *pBuff, int iBuflen);
+int RecvCmd(HardwareSerial &SSPort, char *pBuff, int iBuflen);
 int recv_packet(SoftwareSerial &SSPort, serial_packet *packet);
 int send_packet(SoftwareSerial &SSPort, serial_packet *packet);
+int transmit_command(SoftwareSerial &SSPort, serial_packet *cmd_packet, serial_packet *res_packet, int timeout_ms);
 bool is_valid_packet(serial_packet *packet, uint8_t address[2]);
 uint8_t compute_checksum(serial_packet *packet);
 /***********************************************************************************************/
