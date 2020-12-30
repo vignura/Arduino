@@ -1,6 +1,7 @@
 #include <SoftwareSerial.h>
 
 #define SERIAL_BUAD_RATE            9600
+#define SOFT_SERIAL_BUAD_RATE       1200
 #define SERIAL_BUS_PIN							2
 #define MODE_TIMER_SEC							20
 #define MODE_SWITCH_DELAY_SEC				3
@@ -16,7 +17,7 @@ char message[128];
 void setup() {
   
   Serial.begin(SERIAL_BUAD_RATE);
-  SSerial.begin(SERIAL_BUAD_RATE);
+  SSerial.begin(SOFT_SERIAL_BUAD_RATE);
   SSerial.setRX(SERIAL_BUS_PIN);
   sprintf(message, "Switching to %s mode for %d sec\nconnect pin %d to %d\nenter some text", mode ? "TX" : "RX", MODE_TIMER_SEC, 0, SERIAL_BUS_PIN);
   Serial.println(message);
@@ -91,7 +92,8 @@ void BusTest()
 	}
 	else{
 
-	    SSerial.println("TX Test");
-	    delay(500);
+	    //SSerial.println("TX Test");
+      SSerial.write(0xAA);
+	    delay(1000);
 	}
 }

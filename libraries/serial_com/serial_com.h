@@ -6,6 +6,8 @@
 #include <SoftwareSerial.h>
 //#include <Serial.h>
 
+//#define _DEBUG_
+#define DEBUG_MSG_SIZE          64
 #define SERIAL_READ_DELAY_MS    2
 
 #define MAX_DATA_SIZE           16
@@ -32,18 +34,22 @@
 #define SERIAL_ERR_RECV_TIMEOUT           (SERIAL_ERR_BASE + 8)
 #define SERIAL_ERR_DEV_NOT_BOUND          (SERIAL_ERR_BASE + 9)
 
+#define SERIAL_ADDR_ANY_LSB               0
+#define SERIAL_ADDR_ANY_MSB               0
+#define SERIAL_ADDR_ANY                   "0.0"
 
+#pragma pack(push, 1) 
 typedef struct serial_packet{
 
   uint8_t header;
+  uint8_t pkt_size;
   uint8_t src_addr[2];
   uint8_t dst_addr[2];
-  uint8_t data_size;
   uint8_t data[MAX_DATA_SIZE];
   uint8_t checksum;
 
 }serial_packet;
-
+#pragma pack(pop)
 
 /***********************************************************************************************/
 int8_t set_dev_addr(uint8_t address[2]);
@@ -51,12 +57,16 @@ int8_t set_bind_addr(uint8_t address[2]);
 int8_t validate_packet(serial_packet *packet);
 int8_t validate_src_addr(serial_packet *packet, uint8_t src_addr[2]);
 uint8_t compute_checksum(serial_packet *packet);
-void frame_packet(serial_packet* packet, uint8_t *data_buf, uint8_t size);
+void frame_packet(serial_packet* packet, uint8_t *data_buf, uint8_t buf_size, uint8_t dst_addr[2]);
+int8_t str_to_addr(char* string, uint8_t addr[2]);
+int8_t get_err_str(int8_t err, char* str_buf, uint8_t buf_size); 
 /***********************************************************************************************/
 
 /***********************************************************************************************/
-extern static uint8_t bind_addr[2];
-extern static uint8_t is_bound;
+extern uint8_t bind_addr[2];
+extern uint8_t is_bound;
+extern char DMsg[DEBUG_MSG_SIZE];
+extern HardwareSerial Serial; 
 /***********************************************************************************************/
 /*! 
 * \fn         :: RecvCmd()
@@ -110,28 +120,69 @@ template <typename T>
 int8_t recv_packet(T &SPort, serial_packet *packet, uint16_t timeout_ms)
 {
   int8_t iIndex = 0;
+  int8_t ret = 0;
   uint16_t count = 0;
-  char *buff = (char*)packet;
+  uint8_t pkt_size = 0;
+  int data = 0;
+  uint8_t *buff = (uint8_t*)packet;
+
+  // set the serial bus pin to receive mode
+  SPort.setRX(SPort._receivePin);
 
   // read data from serial port
   while(1)
   {
-    while(iIndex < (buf_size + SERIAL_MIN_PKT_SIZE))
-    {
-      delay(SERIAL_READ_DELAY_MS);
-      
-      if(SPort.available())
+    delay(SERIAL_READ_DELAY_MS);
+
+    while(SPort.available())
+    {      
+      // read header if index is zero 
+      data = SPort.read();
+      buff[iIndex] = data;
+
+      #ifdef _DEBUG_
+        sprintf(DMsg, "[%d] 0x%x", iIndex, data);
+        Serial.println(DMsg);
+      #endif
+
+      if(iIndex == 0)
+      { 
+        if(buff[iIndex] == SERIAL_HEADER)
+        {
+          #ifdef _DEBUG_
+            sprintf(DMsg, "received header");
+            Serial.println(DMsg);
+          #endif
+          iIndex++;
+        }
+      }
+      else if(iIndex == 1)
       {
-        buff[iIndex] = SPort.read();
-        iIndex++;
+        if((buff[iIndex] >= SERIAL_MIN_PKT_SIZE) && (buff[iIndex] <= SERIAL_MAX_PKT_SIZE))
+        {
+          pkt_size = buff[iIndex];
+          iIndex++;  
+          #ifdef _DEBUG_
+            sprintf(DMsg, "received packet size %d", pkt_size);
+            Serial.println(DMsg);
+          #endif
+        }
+        else
+        {
+          iIndex = 0;
+          #ifdef _DEBUG_
+            sprintf(DMsg, "received invalid packet size %d", pkt_size);
+            Serial.println(DMsg);
+          #endif
+        }
       }
       else
       {
-        break;
+        iIndex++;
       }
     }
 
-    if(iIndex == (buf_size + SERIAL_MIN_PKT_SIZE))
+    if((iIndex >= SERIAL_MIN_PKT_SIZE) && (iIndex == pkt_size))
     {
       break;
     }
@@ -159,11 +210,11 @@ int8_t recv_packet(T &SPort, serial_packet *packet, uint16_t timeout_ms)
 
   if(iIndex < SERIAL_MAX_PKT_SIZE)
   {
-    packet->checksum = buff[iIndex];
+    packet->checksum = buff[iIndex -1];
   }
 
   /* validate the packet */
-  ret = validate_packet(&packet, bind_addr);
+  ret = validate_packet(packet);
   if(ret != SERIAL_SUCCESS)
   {
     return ret;
@@ -188,6 +239,7 @@ int8_t recv_packet(T &SPort, serial_packet *packet, uint16_t timeout_ms)
 template <typename T>
 int8_t recv(T &SPort, uint8_t* data_buf, uint8_t buf_size, uint16_t timeout_ms)
 {
+  int8_t iIndex = 0;
   int8_t ret = 0;
   serial_packet packet = {0};
  
@@ -221,7 +273,13 @@ int8_t recv(T &SPort, uint8_t* data_buf, uint8_t buf_size, uint16_t timeout_ms)
     return ret;
   }
 
-  return ret;
+  // copy the data 
+  for(iIndex = 0; ((iIndex < buf_size) && (iIndex < (packet.pkt_size - SERIAL_MIN_PKT_SIZE))); iIndex++)
+  {
+    data_buf[iIndex] = packet.data[iIndex];
+  }
+
+  return iIndex;
 }
 
 /***********************************************************************************************/
@@ -277,11 +335,12 @@ int8_t recv_no_timeout(T &SPort, uint8_t* data_buf, uint8_t buf_size)
 template <typename T>
 int8_t recvfrom(T &SPort, uint8_t src_addr[2], uint8_t* data_buf, uint8_t buf_size, uint16_t timeout_ms)
 {
+  int8_t iIndex = 0;
   int8_t ret = 0;
   serial_packet packet = {0};
  
   // validate input parameters
-  if(data_buf == NULL)
+  if((data_buf == NULL) || (src_addr == NULL))
   {
     return SERIAL_ERR_NULL_PTR;
   }
@@ -305,7 +364,17 @@ int8_t recvfrom(T &SPort, uint8_t src_addr[2], uint8_t* data_buf, uint8_t buf_si
     return ret;
   }
 
-  return ret;
+  // copy the data 
+  for(iIndex = 0; ((iIndex < buf_size) && (iIndex < (packet.pkt_size - SERIAL_MIN_PKT_SIZE))); iIndex++)
+  {
+    data_buf[iIndex] = packet.data[iIndex];
+  }
+
+  // copy the source address
+  src_addr[0] = packet.src_addr[0];
+  src_addr[1] = packet.src_addr[1];
+
+  return iIndex;
 }
 
 /***********************************************************************************************/
@@ -323,12 +392,29 @@ template <typename T>
 int8_t send_packet(T &SPort, serial_packet *packet)
 {
   int iIndex = 0;
-  char *buff = (char*)packet;
+  uint8_t* buff = (uint8_t*)packet;
 
-  for (iIndex = 0; iIndex < (SERIAL_MIN_PKT_SIZE + packet->data_size); ++iIndex)
+  // set the serial bus pin to transmit mode
+  SPort.setTX(SPort._receivePin);
+
+  for (iIndex = 0; iIndex < (packet->pkt_size -1); ++iIndex)
   {
-    SPort.print(buff[iIndex]);
+    SPort.write(buff[iIndex]);
+    #ifdef _DEBUG_
+      sprintf(DMsg, "[%d] 0x%x", iIndex, buff[iIndex]);
+      Serial.println(DMsg);
+    #endif
   }
+
+  SPort.write(packet->checksum);
+  #ifdef _DEBUG_
+    sprintf(DMsg, "[%d] 0x%x", iIndex, packet->checksum);
+    Serial.println(DMsg);
+  #endif
+  iIndex++;
+
+  // set the serial bus pin back to receive mode
+  SPort.setRX(SPort._receivePin);
 
   return iIndex;
 }
@@ -340,12 +426,14 @@ int8_t send_packet(T &SPort, serial_packet *packet)
 * \date       :: 27-DEC-2020
 * \brief      :: This function sends data to serial port from packet and returns the number of
 *                bytes sent.
-* \param[in]  :: SPort, data_buf, data_size
+* \param[in]  :: SPort, data_buf, buf_size
 * \return     :: sent packet size or error code
 */
 /***********************************************************************************************/
-int8_t send(T &SPort, uint8_t *data_buf, uint8_t data_size)
+template <typename T>
+int8_t send(T &SPort, uint8_t *data_buf, uint8_t buf_size)
 {
+  int8_t ret = 0;
   serial_packet packet = {0};
 
   // validate input parameters
@@ -365,9 +453,15 @@ int8_t send(T &SPort, uint8_t *data_buf, uint8_t data_size)
   }
 
   // frame packet before sending
-  frame_packet(&packet, data_buf, data_size, bind_addr);
+  frame_packet(&packet, data_buf, buf_size, bind_addr);
 
-  return send_packet(SPort, packet);
+  ret = send_packet(SPort, &packet);
+  if(ret != (buf_size + SERIAL_MIN_PKT_SIZE))
+  {
+   return ret; 
+  }
+
+  return (ret - SERIAL_MIN_PKT_SIZE);
 }
 
 /***********************************************************************************************/
@@ -377,12 +471,14 @@ int8_t send(T &SPort, uint8_t *data_buf, uint8_t data_size)
 * \date       :: 27-DEC-2020
 * \brief      :: This function sends data to serial port from packet and returns the number of
 *                bytes sent.
-* \param[in]  :: SPort, data_buf, data_size
+* \param[in]  :: SPort, data_buf, buf_size
 * \return     :: sent packet size or error code
 */
 /***********************************************************************************************/
-int8_t sendto(T &SPort, uint8_t dst_addr[2], uint8_t *data_buf, uint8_t data_size)
+template <typename T>
+int8_t sendto(T &SPort, uint8_t dst_addr[2], uint8_t *data_buf, uint8_t buf_size)
 {
+  int8_t ret = 0;
   serial_packet packet = {0};
 
   // validate input parameters
@@ -397,9 +493,15 @@ int8_t sendto(T &SPort, uint8_t dst_addr[2], uint8_t *data_buf, uint8_t data_siz
   }
 
   // frame packet before sending
-  frame_packet(&packet, data_buf, data_size, dst_addr);
+  frame_packet(&packet, data_buf, buf_size, dst_addr);
 
-  return send_packet(SPort, packet);
+  ret = send_packet(SPort, &packet);
+  if(ret != (buf_size + SERIAL_MIN_PKT_SIZE))
+  {
+   return ret; 
+  }
+
+  return (ret - SERIAL_MIN_PKT_SIZE);
 }
 
 /***********************************************************************************************/
@@ -418,13 +520,13 @@ int8_t transmit(T &SPort, uint8_t* tx_data, uint8_t tx_data_len, uint8_t* rx_dat
   int8_t ret = 0;
   
   ret = send(SPort, tx_data, tx_data_len);
-  if(ret != (tx_data_len + SERIAL_MIN_PKT_SIZE))
+  if(ret != tx_data_len)
   {
    return ret; 
   }
   
   ret = recv(SPort, rx_data, rx_data_len, timeout_ms);
-  if(ret != (rx_data_len + SERIAL_MIN_PKT_SIZE))
+  if(ret != rx_data_len)
   {
     return ret;
   }
@@ -448,13 +550,13 @@ int8_t transmit_to(T &SPort, uint8_t dst_addr[2], uint8_t* tx_data, uint8_t tx_d
   int8_t ret = 0;
   
   ret = sendto(SPort, dst_addr, tx_data, tx_data_len);
-  if(ret != (tx_data_len + SERIAL_MIN_PKT_SIZE))
+  if(ret != tx_data_len)
   {
    return ret; 
   }
   
   ret = recvfrom(SPort, dst_addr, rx_data, rx_data_len, timeout_ms);
-  if(ret != (rx_data_len + SERIAL_MIN_PKT_SIZE))
+  if(ret != rx_data_len)
   {
     return ret;
   }
