@@ -12,7 +12,7 @@
 
 #define SAMPLING_PIN            A0
 #define TRIGGER_LEVEL           1000
-#define SAMPLE_SIZE             512
+#define SAMPLE_SIZE             256
 #define SAMPLING_DELAY_US       10
 
 // the setup routine runs once when you press reset:
