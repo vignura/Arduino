@@ -11,20 +11,20 @@
 */
 
 #define SAMPLING_PIN            A0
-#define TRIGGER_LEVEL           1000
+#define TRIGGER_LEVEL           900
 #define SAMPLE_SIZE             256
-#define SAMPLING_DELAY_US       10
+#define SAMPLING_DELAY_US       200
+
+int val[SAMPLE_SIZE] = {0};
 
 // the setup routine runs once when you press reset:
 void setup() {
-  // initialize serial communication at 9600 bits per second:
   Serial.begin(115200);
 }
 
 // the loop routine runs over and over again forever:
 void loop() {
   int i = 0;
-  int val[SAMPLE_SIZE] = {0};
 
   // capture 
   if(analogRead(SAMPLING_PIN) < TRIGGER_LEVEL)

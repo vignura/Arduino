@@ -1,5 +1,6 @@
 #define ZC_PIN			2/* AC opto feedback */
-#define PWM_PIN			3
+#define PWM_PIN			9
+#define PWM_PIN_1		10
 #define SAMPLE_COUNT	120
 
 #define PULSES_PER_CYCLE 				2
@@ -8,9 +9,19 @@
 #define FREQ_DIVISOR					100UL
 #define TRIG_PULSE_LENGTH_US			100
 #define DUTY_CYCLE_PERCENTAGE			50
-#define DUTY_CHANGE_PERIOD_SEC			10
-#define DUTY_CHANGE_PERCENTAGE_STEP		5
-#define TIMER_COUNT						104
+#define DUTY_CHANGE_PERIOD_SEC			2
+#define DUTY_CHANGE_PERCENTAGE_STEP		2
+#define TIMER_COUNT						5000	/* 100 Hz*/
+#define DUTY_CYCLE_COUNT				125		/* 500 us*/
+
+#define NO_CLK_SRC                      (0)
+#define PRESCALR_1                      (_BV(CS10))
+#define PRESCALR_8                      (_BV(CS11))
+#define PRESCALR_64                     (_BV(CS11) | _BV(CS10))
+#define PRESCALR_256                    (_BV(CS12))
+#define PRESCALR_1024                   (_BV(CS11) | _BV(CS10))
+#define EXT_CLK_SRC_RISING              (_BV(CS12) | _BV(CS11))
+#define EXT_CLK_SRC_FALING              (_BV(CS12) | _BV(CS11) | _BV(CS10))
 
 char Msg[64];
 
@@ -18,12 +29,13 @@ void setup() {
  	
  	pinMode(ZC_PIN, INPUT);
  	pinMode(PWM_PIN, OUTPUT);
- 	setup_pwm_50Hz();
-
+ 	pinMode(PWM_PIN_1, OUTPUT);
+ 	disable_pwm();
 	Serial.begin(115200);
 	
 	sprintf(Msg, "Triac Drive");
 	Serial.println(Msg);
+	trigger_triac_pwm_100Hz(20);
 }
 
 void loop() {
@@ -43,7 +55,8 @@ void loop() {
 	{	
 		if((((millis() / 1000) % DUTY_CHANGE_PERIOD_SEC) == 0) && ((millis() / 1000) - time_sec) > 1)
 		{
-			duty_cycle += DUTY_CHANGE_PERCENTAGE_STEP;
+			// duty_cycle += DUTY_CHANGE_PERCENTAGE_STEP;
+			duty_cycle = 5;
 			if(duty_cycle > 100)
 			{
 				duty_cycle = DUTY_CHANGE_PERCENTAGE_STEP;
@@ -51,9 +64,11 @@ void loop() {
 			sprintf(Msg, "Duty cyle: %d %%", duty_cycle);
 			Serial.println(Msg);				
 			time_sec = (millis() / 1000);
+			// trigger_triac_pwm_100Hz(duty_cycle);
+			// trigger_triac_pwm_100Hz(30);
 		}
 
-		trigger_triac(duty_cycle, ((float)freq / (float)FREQ_DIVISOR));
+		// trigger_triac(duty_cycle, ((float)freq / (float)FREQ_DIVISOR));
 	}
 }
 
@@ -100,29 +115,46 @@ void trigger_triac(float duty_cycle, uint16_t frequency)
 	}
 }
 
-void trigger_triac_pwm(float duty_cycle)
+void trigger_triac_pwm_100Hz(float duty_cycle)
 {
-	uint16_t cur_state = LOW;
-	uint16_t pre_state = LOW;
-	float trg_delay_us = ((float)20000.0f * (1.0f - (duty_cycle / TIMER_COUNT)));
+	float trg_delay_us = ((float)10000.0f * (1.0f - (duty_cycle / 100.0f)));
 
-	cur_state = digitalRead(ZC_PIN);
-	if(cur_state != pre_state)
+	while(1)
 	{
-		delayMicroseconds(trg_delay_us);
+		if(digitalRead(ZC_PIN) == HIGH)
+		{
+			break;
+		}
 	}
+
+	delayMicroseconds(trg_delay_us);
+	setup_pwm();
 }
 
 
-void setup_pwm_50Hz()
+void setup_pwm()
 {
-	// timer 2
-    TCCR2A = 0;
-    TCCR2B = 0;
-    TCNT2  = 0;
-    TCCR2A = _BV(COM2B1)  // non-inverted PWM on ch. B
-        | _BV(WGM20);  // mode 5: ph. correct PWM, TOP = OCR2A
-    TCCR2B = _BV(WGM22)   // ditto
-        | _BV(CS22) | _BV(CS21);   // prescaler = 256
-    OCR2A  = 104;
+    // clear the counter
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1  = 0;
+    
+    // non-inverted PWM on ch A and ch B
+    TCCR1A = _BV(COM1A1) | _BV(COM1B1);
+    // mode 14: fast PWM, TOP = ICR1
+    TCCR1A |= _BV(WGM11);          
+    TCCR1B |= (_BV(WGM12) |_BV(WGM13));
+    
+    // set prescalar
+    TCCR1B |= PRESCALR_64;
+
+    ICR1 = (TIMER_COUNT -1);
+    OCR1A = DUTY_CYCLE_COUNT;
+}
+
+void disable_pwm()
+{
+	TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1  = 0;
 }
