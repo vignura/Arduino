@@ -11,8 +11,8 @@
 #define DUTY_CYCLE_PERCENTAGE			50
 #define DUTY_CHANGE_PERIOD_SEC			2
 #define DUTY_CHANGE_PERCENTAGE_STEP		2
-#define TIMER_COUNT						5000	/* 100 Hz*/
-#define DUTY_CYCLE_COUNT				125		/* 500 us*/
+#define TIMER_COUNT						2474	/* 101.05 Hz*/
+#define DUTY_CYCLE_COUNT				25		/* 100 us*/
 
 #define NO_CLK_SRC                      (0)
 #define PRESCALR_1                      (_BV(CS10))
@@ -35,41 +35,42 @@ void setup() {
 	
 	sprintf(Msg, "Triac Drive");
 	Serial.println(Msg);
-	trigger_triac_pwm_100Hz(20);
+	//trigger_triac_pwm_100Hz(10);
+	setup_pwm();
 }
 
 void loop() {
 
-	uint32_t freq = 0;
-	uint32_t time_sec = 0;
-	int16_t duty_cycle = DUTY_CHANGE_PERCENTAGE_STEP;
+	// uint32_t freq = 0;
+	// uint32_t time_sec = 0;
+	// int16_t duty_cycle = DUTY_CHANGE_PERCENTAGE_STEP;
 
-	/* compute and print frequency */
-	freq = compute_line_frequency(SAMPLE_COUNT);
-	sprintf(Msg, "frequency: %d.%d%d Hz", (freq / FREQ_DIVISOR), ((freq / 10) % 10), (freq % 10));
-	Serial.println(Msg);
-	sprintf(Msg, "Duty cyle: %d %%", duty_cycle);
-	Serial.println(Msg);
+	// /* compute and print frequency */
+	// freq = compute_line_frequency(SAMPLE_COUNT);
+	// sprintf(Msg, "frequency: %d.%d%d Hz", (freq / FREQ_DIVISOR), ((freq / 10) % 10), (freq % 10));
+	// Serial.println(Msg);
+	// sprintf(Msg, "Duty cyle: %d %%", duty_cycle);
+	// Serial.println(Msg);
 
-	while(1)
-	{	
-		if((((millis() / 1000) % DUTY_CHANGE_PERIOD_SEC) == 0) && ((millis() / 1000) - time_sec) > 1)
-		{
-			// duty_cycle += DUTY_CHANGE_PERCENTAGE_STEP;
-			duty_cycle = 5;
-			if(duty_cycle > 100)
-			{
-				duty_cycle = DUTY_CHANGE_PERCENTAGE_STEP;
-			}
-			sprintf(Msg, "Duty cyle: %d %%", duty_cycle);
-			Serial.println(Msg);				
-			time_sec = (millis() / 1000);
-			// trigger_triac_pwm_100Hz(duty_cycle);
-			// trigger_triac_pwm_100Hz(30);
-		}
+	// while(1)
+	// {	
+	// 	if((((millis() / 1000) % DUTY_CHANGE_PERIOD_SEC) == 0) && ((millis() / 1000) - time_sec) > 1)
+	// 	{
+	// 		// duty_cycle += DUTY_CHANGE_PERCENTAGE_STEP;
+	// 		duty_cycle = 5;
+	// 		if(duty_cycle > 100)
+	// 		{
+	// 			duty_cycle = DUTY_CHANGE_PERCENTAGE_STEP;
+	// 		}
+	// 		sprintf(Msg, "Duty cyle: %d %%", duty_cycle);
+	// 		Serial.println(Msg);				
+	// 		time_sec = (millis() / 1000);
+	// 		// trigger_triac_pwm_100Hz(duty_cycle);
+	// 		// trigger_triac_pwm_100Hz(30);
+	// 	}
 
-		// trigger_triac(duty_cycle, ((float)freq / (float)FREQ_DIVISOR));
-	}
+	// 	// trigger_triac(duty_cycle, ((float)freq / (float)FREQ_DIVISOR));
+	// }
 }
 
 uint16_t compute_line_frequency(uint16_t sample_count)
@@ -127,7 +128,8 @@ void trigger_triac_pwm_100Hz(float duty_cycle)
 		}
 	}
 
-	delayMicroseconds(trg_delay_us);
+	// delayMicroseconds((uint32_t)trg_delay_us);
+	// delayMicroseconds((8000UL));
 	setup_pwm();
 }
 

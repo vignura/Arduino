@@ -13,7 +13,9 @@
 #define SAMPLING_PIN            A0
 #define TRIGGER_LEVEL           900
 #define SAMPLE_SIZE             256
-#define SAMPLING_DELAY_US       200
+// Ref: https://www.arduino.cc/reference/en/language/functions/analog-io/analogread/
+#define ANALOG_READ_TIME_US     100
+#define SAMPLING_DELAY_US       (2 * ANALOG_READ_TIME_US)
 
 int val[SAMPLE_SIZE] = {0};
 
@@ -24,15 +26,30 @@ void setup() {
 
 // the loop routine runs over and over again forever:
 void loop() {
+  
+  int ch = 0;
+  
+  if(Serial.available())
+  {
+    ch = Serial.read();
+  }
+
+  if(ch == '\n')
+  {
+    capture();    
+  }
+}
+
+void capture()
+{
   int i = 0;
 
-  // capture 
   if(analogRead(SAMPLING_PIN) < TRIGGER_LEVEL)
   {
     for(i = 0; i < SAMPLE_SIZE; i++)
     {
       val[i] = analogRead(SAMPLING_PIN);    
-      delayMicroseconds(SAMPLING_DELAY_US);
+      delayMicroseconds(SAMPLING_DELAY_US - ANALOG_READ_TIME_US);
     }
     
     for(i = 0; i < SAMPLE_SIZE; i++)
@@ -40,6 +57,4 @@ void loop() {
       Serial.println(val[i]);
     }
   }
- 
-  //delay(1);        // delay in between reads for stability
 }

@@ -85,22 +85,29 @@ int RecvCmd(T &SPort, char *pBuff, int iBuflen)
 
   if(pBuff == NULL)
   {
-    return -1;
+    return SERIAL_ERR_NULL_PTR;
   }
   
-  while(iIndex < iBuflen)
-  {
-    delay(SERIAL_READ_DELAY_MS);
+  // while(iIndex < iBuflen)
+  // {
+  //   delay(SERIAL_READ_DELAY_MS);
     
-    if(SPort.available())
-    {
-      pBuff[iIndex] = SPort.read();
-      iIndex++;
-    }
-    else
-    {
-      break;
-    }
+  //   if(SPort.available())
+  //   {
+  //     pBuff[iIndex] = SPort.read();
+  //     iIndex++;
+  //   }
+  //   else
+  //   {
+  //     break;
+  //   }
+  // }
+
+  while(SPort.available())
+  {
+    pBuff[iIndex] = SPort.read();
+    iIndex++;
+    delay(SERIAL_READ_DELAY_MS);
   }
 
   return iIndex;
