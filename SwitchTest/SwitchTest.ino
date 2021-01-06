@@ -26,7 +26,7 @@ void Switch_init()
 	
 	for(i = 0; i < MAX_SWITCHES; i++)
 	{
-		swtch[i] = new Switch(switch_pin[i], SWITCH_OFF, SWITCH_DEBOUNCE_TIME_MS);
+		swtch[i] = new Switch(switch_pin[i], INPUT_PULLUP, SWITCH_OFF, SWITCH_DEBOUNCE_TIME_MS);
 	}
 }
 

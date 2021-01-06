@@ -17,13 +17,16 @@ class Switch
 {
 	bool m_state_changed;
 	uint8_t m_pin;
+	int16_t m_pinmode;
 	uint8_t m_state;
 	uint8_t m_tmp_state;
 	uint32_t m_start_time_ms;
 	uint32_t m_debounce_time_ms;
+private:
+	uint8_t getPinState();
 public:
 	Switch(uint8_t m_pin, uint8_t state);
-	Switch::Switch(uint8_t pin, uint8_t state, uint32_t debounce_time_ms);
+	Switch(uint8_t pin, int16_t pinmode, uint8_t state, uint32_t debounce_time_ms);
 	uint8_t getPin();
 	uint8_t getState();
 	bool isStateChanged();

@@ -5,16 +5,38 @@ extern HardwareSerial Serial;
 static char DMsg[DEBUG_MSG_SIZE] = {0}; 
 #endif
 
+uint8_t Switch::getPinState()
+{
+	uint8_t state = 0;
+
+	state =  digitalRead(m_pin);
+	/* invert states if INPUT_PULLUP is enabled */
+	if(m_pinmode == INPUT_PULLUP)
+	{
+		if(state == LOW)
+		{
+			state = HIGH;
+		}
+		else
+		{
+			state = LOW;	
+		}
+	}
+
+	return state;
+}
+
 Switch::Switch(uint8_t pin, uint8_t state)
 {
 	m_pin = pin;
 	m_state = state;
 	m_state_changed = false;
+	m_pinmode = INPUT;
 	m_tmp_state = 0;
 	m_debounce_time_ms = SWITCH_DEBOUNCE_TIME_MS;
 	m_start_time_ms = 0;
 
-	pinMode(m_pin, INPUT);
+	pinMode(m_pin, m_pinmode);
 
 	#ifdef _DEBUG_
       sprintf(DMsg, "pin: %d state: %d", pin, state);
@@ -22,9 +44,10 @@ Switch::Switch(uint8_t pin, uint8_t state)
     #endif
 }
 
-Switch::Switch(uint8_t pin, uint8_t state, uint32_t debounce_time_ms)
+Switch::Switch(uint8_t pin, int16_t pinmode, uint8_t state, uint32_t debounce_time_ms)
 {
 	m_pin = pin;
+	m_pinmode = pinmode;
 	m_state = state;
 	m_debounce_time_ms = debounce_time_ms;
 
@@ -32,7 +55,7 @@ Switch::Switch(uint8_t pin, uint8_t state, uint32_t debounce_time_ms)
 	m_tmp_state = 0;
 	m_start_time_ms = 0;
 
-	pinMode(m_pin, INPUT);
+	pinMode(m_pin, m_pinmode);
 
 	#ifdef _DEBUG_
       sprintf(DMsg, "pin: %d state: %d debounce time: %lu ms", pin, state, m_debounce_time_ms);
@@ -63,7 +86,7 @@ void Switch::SwitchTask()
 #ifdef ENABLE_DEBOUNCE
 	if(m_start_time_ms == 0)
 	{
-		m_tmp_state = digitalRead(m_pin);
+		m_tmp_state = getPinState();
 		if(m_tmp_state != m_state)
 		{
 			m_start_time_ms = time_ms;
@@ -80,7 +103,7 @@ void Switch::SwitchTask()
 	      Serial.println(DMsg);
 	    #endif
 
-		if(digitalRead(m_pin) != m_tmp_state)
+		if(getPinState() != m_tmp_state)
 		{
 			m_start_time_ms = 0;
 
@@ -97,7 +120,7 @@ void Switch::SwitchTask()
 		  Serial.println(DMsg);
 		#endif
 
-		if(digitalRead(m_pin) == m_tmp_state)
+		if(getPinState() == m_tmp_state)
 		{
 			m_state = m_tmp_state;
 			m_state_changed = true;
@@ -114,7 +137,7 @@ void Switch::SwitchTask()
 	    #endif
 	}
 #else
-	m_tmp_state = digitalRead(m_pin);
+	m_tmp_state = getPinState();
 	if(m_tmp_state != m_state)
 	{
 		m_state = m_tmp_state;
