@@ -27,7 +27,7 @@ void setup() {
 	Serial.println(Msg);
 
 	attachInterrupt(digitalPinToInterrupt(NC_PIN), NC_isr, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(NO_PIN), NO_isr, CHANGE);
+	attachInterrupt(digitalPinToInterrupt(NO_PIN), NO_isr, CHANGE);
 }
 
 void loop() {
@@ -35,10 +35,10 @@ void loop() {
 	/* first check NC Pin */
 	if(NCPinIntrCnt > 0)
 	{
-		Rly.setState(RELAY_ON);
+		Rly.setState(RELAY_OFF);
 		
 		#ifdef ENABLE_DEBUG
-			sprintf(Msg, "Turning Relay ON");
+			sprintf(Msg, "Turning Relay OFF");
 			Serial.println(Msg);			
 		#endif
 
@@ -49,10 +49,10 @@ void loop() {
 	/* then check NO Pin */
 	if(NOPinIntrCnt > 0)
 	{
-		Rly.setState(RELAY_OFF);
+		Rly.setState(RELAY_ON);
 		
 		#ifdef ENABLE_DEBUG
-			sprintf(Msg, "Turning Relay OFF");
+			sprintf(Msg, "Turning Relay ON");
 			Serial.println(Msg);			
 		#endif	
 
