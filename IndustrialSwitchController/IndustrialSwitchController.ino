@@ -2,10 +2,12 @@
 
 #define VERSION			"0.1"
 #define RELAY_PIN		1
-#define NC_PIN			2  /* green */
-#define NO_PIN			3  /* red */
+#define NC_PIN			2  /* red */
+#define NO_PIN			3  /* green	 */
 
-#define RELAY_DEFAULT_STATE		RELAY_OFF
+#define RELAY_DEFAULT_STATE			RELAY_OFF
+#define NO_SWITCH_DEBOUNCE_COUNT	0
+#define NC_SWITCH_DEBOUNCE_COUNT	20
 
 #define ENABLE_DEBUG
 #define MSG_BUFFER_SIZE		64
@@ -18,8 +20,10 @@ Relay Rly(RELAY_PIN, false);
 
 void setup() {
   
+  	/* always connect the NC pin to switch and switch to 5V 
+  	   and connect NO pin to switch to and switch to ground */
 	pinMode(NC_PIN, INPUT);
-	pinMode(NO_PIN, INPUT);
+	pinMode(NO_PIN, INPUT_PULLUP);
 	Rly.setState(RELAY_DEFAULT_STATE);
 	
 	Serial.begin(9600);
@@ -33,12 +37,12 @@ void setup() {
 void loop() {
 
 	/* first check NC Pin */
-	if(NCPinIntrCnt > 0)
+	if(NCPinIntrCnt > NC_SWITCH_DEBOUNCE_COUNT)
 	{
 		Rly.setState(RELAY_OFF);
 		
 		#ifdef ENABLE_DEBUG
-			sprintf(Msg, "Turning Relay OFF");
+			sprintf(Msg, "Turning Relay OFF [%d]", NCPinIntrCnt);
 			Serial.println(Msg);			
 		#endif
 
@@ -47,12 +51,12 @@ void loop() {
 	}
 
 	/* then check NO Pin */
-	if(NOPinIntrCnt > 0)
+	if(NOPinIntrCnt > NO_SWITCH_DEBOUNCE_COUNT)
 	{
 		Rly.setState(RELAY_ON);
 		
 		#ifdef ENABLE_DEBUG
-			sprintf(Msg, "Turning Relay ON");
+			sprintf(Msg, "Turning Relay ON [%d]", NOPinIntrCnt);
 			Serial.println(Msg);			
 		#endif	
 
