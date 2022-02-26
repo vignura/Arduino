@@ -57,24 +57,3 @@ bool StrnCmp(char *pString1, char *pString2, int iLen)
 
   return true;
 }
-
-/***********************************************************************************************/
-/*! 
-* \fn         :: debug_println()
-* \author     :: Vignesh S
-* \date       :: 06-FEB-2022
-* \brief      :: This function prints debug strings
-* \param[in]  :: string
-* \return     :: NONE
-*/
-/***********************************************************************************************/
-void debug_println(const char *format, ...)
-{
-  #ifdef PRINT_DEBUG    
-    va_list pArg;
-    va_start(pArg, format);
-    vsnprintf(g_arrcMsg, MAX_DEBUG_MSG_SIZE, format, pArg);
-    va_end(pArg);    
-    Serial.println(g_arrcMsg);
-  #endif
-}
